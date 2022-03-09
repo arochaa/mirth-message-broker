@@ -1,0 +1,96 @@
+version: '3.7'
+
+networks:
+  internal:
+    driver: bridge
+  external:
+    driver: bridge
+
+volumes:
+  custom:
+    driver: local
+    driver_opts:
+      type: none
+      device: /opt/pacs/mirth/custom-lib
+      o: bind
+  conf:
+    driver: local
+    driver_opts:
+      type: none
+      device: /opt/pacs/mirth/conf
+      o: bind
+  logs:
+    driver: local
+    driver_opts:
+      type: none
+      device: /opt/pacs/mirth/logs
+      o: bind
+  appdata:
+    driver: local
+    driver_opts:
+      type: none
+      device: /opt/pacs/mirth/appdata
+      o: bind
+  db:
+    driver: local
+    driver_opts:
+      type: none
+      device: ${DATABASE}
+      o: bind
+  viewershell:
+    driver: local
+    driver_opts:
+      type: none
+      device: /opt/storage-viewershell
+      o: bind
+  filecatalyst-central:
+    driver: local
+    driver_opts:
+      type: none
+      device: /opt/filecatalyst-central
+      o: bind
+
+services:
+  mirth:
+    container_name: integrador-especialista
+    image: ${IMAGE_MIRTH}
+    restart: unless-stopped
+    user: root
+    environment:
+      TZ: '${TZ:-America/Sao_Paulo}'
+      DATABASE: postgres
+      DATABASE_URL: jdbc:postgresql://${MIRTH_DB_HOST}:${MIRTH_DB_PORT}/${MIRTH_DB_NAME}
+      DATABASE_MAX_CONNECTIONS: 20
+      DATABASE_USERNAME: ${MIRTH_DB_USERNAME}
+      DATABASE_PASSWORD: ${MIRTH_DB_PASSWORD}
+      VMOPTIONS: -Xmx3064m
+    volumes:
+      - viewershell:/mnt/storage-viewershell
+      - filecatalyst-central:/mnt/filecatalyst-central
+      - appdata:/opt/connect/appdata
+      - logs:/opt/connect/logs
+      - conf:/opt/connect/conf
+      - custom:/opt/connect/custom-lib
+    ports:
+      - 8080:8080/tcp
+      - 8443:8443/tcp
+      - 6661:6661/tcp
+      - 6664:6664/tcp
+    networks:
+      - internal
+    depends_on:
+      - db
+
+  db:
+    image: ${IMAGE_POSTGRES}
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=${MIRTH_DB_USERNAME}
+      - POSTGRES_PASSWORD=${MIRTH_DB_PASSWORD}
+      - POSTGRES_DB=${MIRTH_DB_NAME}
+    ports:
+      - 5432:5432/tcp
+    volumes:
+    - ./db:/var/lib/postgresql/data
+    networks:
+      - internal
